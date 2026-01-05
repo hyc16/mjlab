@@ -167,7 +167,6 @@ def reset_root_state_uniform(
 
   asset.write_root_link_velocity_to_sim(velocities, env_ids=env_ids)
 
-
 def reset_joints_by_offset(
   env: ManagerBasedRlEnv,
   env_ids: torch.Tensor | None,
@@ -243,7 +242,6 @@ def apply_external_force_torque(
     forces, torques, env_ids=env_ids, body_ids=asset_cfg.body_ids
   )
 
-
 ##
 # Domain randomization
 ##
@@ -254,12 +252,10 @@ def apply_external_force_torque(
 @dataclass
 class FieldSpec:
   """Specification for how to handle a particular field."""
-
   entity_type: Literal["dof", "joint", "body", "geom", "site", "actuator"]
   use_address: bool = False  # True for fields that need address (q_adr, v_adr)
   default_axes: list[int] | None = None
   valid_axes: list[int] | None = None
-
 
 FIELD_SPECS = {
   # Dof - uses addresses.
@@ -514,7 +510,6 @@ def _sample_distribution(
     return sample_gaussian(lower, upper, shape, device=device)
   else:
     raise ValueError(f"Unknown distribution: {distribution}")
-
 
 def randomize_pd_gains(
   env: ManagerBasedRlEnv,

@@ -77,7 +77,6 @@ EventMode = Literal["startup", "reset", "interval"]
 @dataclass(kw_only=True)
 class EventTermCfg(ManagerTermBaseCfg):
   """Configuration for an event term."""
-
   mode: EventMode
   interval_range_s: tuple[float, float] | None = None
   is_global_time: bool = False

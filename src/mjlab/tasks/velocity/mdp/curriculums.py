@@ -26,6 +26,31 @@ class RewardWeightStage(TypedDict):
   step: int
   weight: float
 
+class ArmWanderStage(TypedDict):
+  step: int
+  interval_s: float  # segment duration / resample period
+  sigma: float       # gaussian std (rad)
+
+def arm_wander_schedule(
+  env: "ManagerBasedRlEnv",
+  env_ids: torch.Tensor,
+  sample_stages: list[ArmWanderStage],
+) -> dict[str, torch.Tensor]:
+  del env_ids  # Unused.
+  # interval采样时间和sigma采样方差
+  for stage in sample_stages:
+    if env.common_step_counter > stage["step"]:
+      if "interval_s" in stage and stage["interval_s"] is not None:
+        env.extras["_arm_wander_interval_s"] = float(stage["interval_s"])
+      if "sigma" in stage and stage["sigma"] is not None:
+        env.extras["_arm_wander_sigma"] = float(stage["sigma"])
+      if "enable" in stage and stage["enable"] is not None:
+        env.extras["_arm_wander_enabled"] = bool(stage["enable"])
+  return {
+      "arm_wander_interval_s": torch.tensor(float(env.extras.get("_arm_wander_interval_s", 2.0))),
+      "arm_wander_sigma": torch.tensor(float(env.extras.get("_arm_wander_sigma", 0.05))),
+  }
+
 
 def terrain_levels_vel(
   env: ManagerBasedRlEnv,
@@ -37,6 +62,7 @@ def terrain_levels_vel(
 
   terrain = env.scene.terrain
   assert terrain is not None
+
   terrain_generator = terrain.cfg.terrain_generator
   assert terrain_generator is not None
 

@@ -16,3 +16,9 @@ from mjlab.asset_zoo.robots.unitree_go1.go1_constants import (
 from mjlab.asset_zoo.robots.unitree_go1.go1_constants import (
   get_go1_robot_cfg as get_go1_robot_cfg,
 )
+from mjlab.asset_zoo.robots.phybot_mini.phybot_mini_constants import (
+  PHYBOT_ACTION_SCALE as PHYBOT_ACTION_SCALE,
+)
+from mjlab.asset_zoo.robots.phybot_mini.phybot_mini_constants import (
+  get_phybot_robot_cfg as get_phybot_robot_cfg,
+)

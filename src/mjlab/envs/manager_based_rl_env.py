@@ -284,6 +284,9 @@ class ManagerBasedRlEnv:
     for _ in range(self.cfg.decimation):
       self._sim_step_counter += 1
       self.action_manager.apply_action()
+      #运行手臂随机化，因为持续运动，应该写到step而不是域随机
+      self.apply_arm_wander(dt=self.physics_dt)  # <--- add this
+
       self.scene.write_data_to_sim()
       self.sim.step()
       self.scene.update(dt=self.physics_dt)
@@ -423,3 +426,85 @@ class ManagerBasedRlEnv:
     self.extras["log"].update(info)
     # reset the episode length buffer.
     self.episode_length_buf[env_ids] = 0
+    #reset手臂状态
+    self.apply_arm_wander(reset_env_ids=env_ids)
+
+  def apply_arm_wander(
+          self,
+          *,
+          dt: float | None = None,
+          reset_env_ids=None,
+          asset_name: str = "robot",
+          write_ctrl_on_reset: bool = True,
+  ) -> None:
+    """
+    One function for BOTH:
+      1) per-physics-step arm wandering (call with dt=env.physics_dt)
+      2) reset handling for a subset of envs (call with reset_env_ids=env_ids)
+     保留了正常仿真和reset接口
+    Required extras:
+      env.extras["_arm_wander_enabled"] : bool
+      env.extras["_arm_wander_interval_s"] : float   # segment duration T
+      env.extras["_arm_wander_sigma"] : float        # gaussian std sigma
+
+    Optional extras:
+      env.extras["_arm_wander_joint_ranges"] : dict[regex, (lo, hi)]
+        If absent, use built-in safe defaults.
+    """
+
+    # -------------------------
+    # 0) 拿取extra数据
+    # -------------------------
+    if not bool(self.extras.get("_arm_wander_enabled", False)):
+      return
+    T = float(self.extras.get("_arm_wander_interval_s", 0.0))
+    sigma = float(self.extras.get("_arm_wander_sigma", 0.0))
+    # joint ranges: fixed constraint (not curriculum)
+    joint_ranges = self.extras.get("_arm_wander_joint_ranges", None)
+
+    asset = self.scene[asset_name]
+
+    # 重置extra状态接口，通过reset调用
+    if reset_env_ids is None:
+      reset_ids = None
+    else:
+      if isinstance(reset_env_ids, (list, tuple)):
+        reset_ids = torch.tensor(reset_env_ids, device=self.device, dtype=torch.long)
+      else:
+        reset_ids = reset_env_ids.to(device=self.device, dtype=torch.long)
+
+    # ------------------------------------------------------------
+    # 1) LAZY INIT (only once)
+    # ------------------------------------------------------------
+    st = self.extras.setdefault("_arm_wander_state", {})
+    if not st.get("_inited", False):
+      JOINT_LIMITS = {
+        "left_shoulder_pitch_joint": (-2.62, 2.62),
+        "left_shoulder_roll_joint": (0.00, 2.62),
+        "left_shoulder_yaw_joint": (0.00, 0.00),  # 固定不动
+        "left_elbow_pitch_joint": (-2.27, 0.00),
+        "right_shoulder_pitch_joint": (-2.62, 2.62),
+        "right_shoulder_roll_joint": (-2.62, 0.00),
+        "right_shoulder_yaw_joint": (0.00, 0.00),  # 固定不动
+        "right_elbow_pitch_joint": (0.00, 2.27),
+      }
+      arm_joint_names = list(JOINT_LIMITS.keys())
+      joint_ids_list, matched_names = asset.find_joints(arm_joint_names)
+      arm_joint_ids = torch.as_tensor(joint_ids_list, device=self.device, dtype=torch.long)
+      matched_names = list(matched_names)
+
+      # Build low/high aligned with matched_names
+      low = torch.empty((len(matched_names),), device=self.device, dtype=torch.float32)
+      high = torch.empty_like(low)
+
+      for i, name in enumerate(matched_names):
+        if name not in JOINT_LIMITS:
+          raise ValueError(
+            f"[apply_arm_wander] Joint '{name}' missing in JOINT_LIMITS. "
+            f"Expected keys: {arm_joint_names}"
+          )
+        lo, hi = JOINT_LIMITS[name]
+        low[i] = float(lo)
+        high[i] = float(hi)
+
+      ctrl_ids = []

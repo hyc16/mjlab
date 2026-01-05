@@ -119,7 +119,6 @@ def angular_momentum_penalty(
   env.extras["log"]["Metrics/angular_momentum_mean"] = torch.mean(angmom_magnitude)
   return angmom_magnitude_sq
 
-
 def feet_air_time(
   env: ManagerBasedRlEnv,
   sensor_name: str,
