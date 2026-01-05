@@ -91,7 +91,7 @@ DAMPING_68_II = 5.0
 DAMPING_47 = 5.0
 
 PHYBOT_ARC_102 = BuiltinPositionActuatorCfg(
-  joint_names_expr=(
+  target_names_expr=(
       ".*_hip_pitch_joint",
   ),
   effort_limit=PHYARC_102.effort_limit,
@@ -100,7 +100,7 @@ PHYBOT_ARC_102 = BuiltinPositionActuatorCfg(
   damping=DAMPING_102,
 )
 PHYBOT_ARC_78 = BuiltinPositionActuatorCfg(
-  joint_names_expr=(
+  target_names_expr=(
       ".*_hip_roll_joint",
       ".*_knee_joint",),
   effort_limit=PHYARC_78.effort_limit,
@@ -109,7 +109,7 @@ PHYBOT_ARC_78 = BuiltinPositionActuatorCfg(
   damping=DAMPING_78,
 )
 PHYBOT_ARC_68_I = BuiltinPositionActuatorCfg(
-  joint_names_expr=(
+  target_names_expr=(
       ".*_hip_yaw_joint",
       "waist_yaw_joint",
   ),
@@ -119,7 +119,7 @@ PHYBOT_ARC_68_I = BuiltinPositionActuatorCfg(
   damping=DAMPING_68_I,
 )
 PHYBOT_ARC_68_II = BuiltinPositionActuatorCfg(
-  joint_names_expr=(
+  target_names_expr=(
       ".*_ankle_pitch_joint",
       ".*_ankle_roll_joint",
       ".*_shoulder_pitch_joint",
@@ -132,7 +132,7 @@ PHYBOT_ARC_68_II = BuiltinPositionActuatorCfg(
   damping=DAMPING_68_II,
 )
 PHYBOT_ARC_47 = BuiltinPositionActuatorCfg(
-  joint_names_expr=(
+  target_names_expr=(
     ".*_shoulder_yaw_joint",
   ),
   effort_limit=PHYARC_47.effort_limit,
@@ -169,6 +169,7 @@ KNEES_BENT_KEYFRAME = EntityCfg.InitialStateCfg(
 # This enables all collisions, including self collisions.
 # Self-collisions are given condim=1 while foot collisions
 # are given condim=3 and custom friction and solimp.
+
 FULL_COLLISION = CollisionCfg(
   geom_names_expr=(".*_collision",),
   condim={r"^(left|right)_foot[1-7]_collision$": 3, ".*_collision": 1},
@@ -211,7 +212,6 @@ PHYBOT_ARTICULATION = EntityArticulationInfoCfg(
 
 def get_phybot_robot_cfg() -> EntityCfg:
   """Get a fresh G1 robot configuration instance.
-
   Returns a new EntityCfg instance each time to avoid mutation issues when
   the config is shared across multiple places.
   """
@@ -235,7 +235,7 @@ _LOWER_LIMB_JOINT_EXPR = {
 for a in PHYBOT_ARTICULATION.actuators:
   e = a.effort_limit
   s = a.stiffness
-  names = a.joint_names_expr
+  names = a.target_names_expr
   assert e is not None
   for n in names:
     if n in _LOWER_LIMB_JOINT_EXPR:
