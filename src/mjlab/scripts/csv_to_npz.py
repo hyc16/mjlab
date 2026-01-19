@@ -9,6 +9,7 @@ from mjlab.entity import Entity
 from mjlab.scene import Scene
 from mjlab.sim.sim import Simulation, SimulationCfg
 from mjlab.tasks.tracking.config.g1.env_cfgs import unitree_g1_flat_tracking_env_cfg
+from mjlab.tasks.phybot_tracking.config.phybot.env_cfgs import phybot_c1_flat_tracking_env_cfg
 from mjlab.utils.lab_api.math import (
   axis_angle_from_quat,
   quat_conjugate,
@@ -359,7 +360,7 @@ def main(
   sim_cfg = SimulationCfg()
   sim_cfg.mujoco.timestep = 1.0 / output_fps
 
-  scene = Scene(unitree_g1_flat_tracking_env_cfg().scene, device=device)
+  scene = Scene(phybot_c1_flat_tracking_env_cfg().scene, device=device)
   model = scene.compile()
 
   sim = Simulation(num_envs=1, cfg=sim_cfg, model=model, device=device)
@@ -400,22 +401,22 @@ def main(
       "right_ankle_pitch_joint",
       "right_ankle_roll_joint",
       "waist_yaw_joint",
-      "waist_roll_joint",
-      "waist_pitch_joint",
+      # "waist_roll_joint",
+      # "waist_pitch_joint",
       "left_shoulder_pitch_joint",
       "left_shoulder_roll_joint",
       "left_shoulder_yaw_joint",
-      "left_elbow_joint",
-      "left_wrist_roll_joint",
-      "left_wrist_pitch_joint",
-      "left_wrist_yaw_joint",
+      "left_elbow_pitch_joint",
+      # "left_wrist_roll_joint",
+      # "left_wrist_pitch_joint",
+      # "left_wrist_yaw_joint",
       "right_shoulder_pitch_joint",
       "right_shoulder_roll_joint",
       "right_shoulder_yaw_joint",
-      "right_elbow_joint",
-      "right_wrist_roll_joint",
-      "right_wrist_pitch_joint",
-      "right_wrist_yaw_joint",
+      "right_elbow_pitch_joint",
+      # "right_wrist_roll_joint",
+      # "right_wrist_pitch_joint",
+      # "right_wrist_yaw_joint",
     ],
     input_fps=input_fps,
     input_file=input_file,
