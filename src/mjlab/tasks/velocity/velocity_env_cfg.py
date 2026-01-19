@@ -38,9 +38,14 @@ def make_velocity_env_cfg() -> ManagerBasedRlEnvCfg:
   ##
 
   policy_terms = {
-    "base_lin_vel": ObservationTermCfg(
+    # "base_lin_vel": ObservationTermCfg(
+    #   func=mdp.builtin_sensor,
+    #   params={"sensor_name": "robot/imu_lin_vel"},
+    #   noise=Unoise(n_min=-0.5, n_max=0.5),
+    # ),
+    "base_acc_vel": ObservationTermCfg(
       func=mdp.builtin_sensor,
-      params={"sensor_name": "robot/imu_lin_vel"},
+      params={"sensor_name": "robot/imu_acc"},
       noise=Unoise(n_min=-0.5, n_max=0.5),
     ),
     "base_ang_vel": ObservationTermCfg(
@@ -69,6 +74,11 @@ def make_velocity_env_cfg() -> ManagerBasedRlEnvCfg:
 
   critic_terms = {
     **policy_terms,
+    "base_lin_vel": ObservationTermCfg(
+      func=mdp.builtin_sensor,
+      params={"sensor_name": "robot/imu_lin_vel"},
+      noise=Unoise(n_min=-0.5, n_max=0.5),
+    ),
     "foot_height": ObservationTermCfg(
       func=mdp.foot_height,
       params={"asset_cfg": SceneEntityCfg("robot", site_names=())},  # Set per-robot.
@@ -92,6 +102,8 @@ def make_velocity_env_cfg() -> ManagerBasedRlEnvCfg:
       terms=policy_terms,
       concatenate_terms=True,
       enable_corruption=True,
+      history_length=20,
+      flatten_history_dim=True,
     ),
     "critic": ObservationGroupCfg(
       terms=critic_terms,
@@ -107,8 +119,13 @@ def make_velocity_env_cfg() -> ManagerBasedRlEnvCfg:
   actions: dict[str, ActionTermCfg] = {
     "joint_pos": JointPositionActionCfg(
       entity_name="robot",
-      actuator_names=(".*",),
-      scale=0.5,  # Override per-robot.
+      actuator_names=(".*_hip_pitch_joint",
+                      ".*_hip_roll_joint",
+                      ".*_hip_yaw_joint",
+                      ".*_knee_joint",
+                      ".*_ankle_pitch_joint",
+                      ".*_ankle_roll_joint",),
+      scale=0.25,  # Override per-robot.
       use_default_offset=True,
     )
   }
@@ -376,11 +393,11 @@ def make_velocity_env_cfg() -> ManagerBasedRlEnvCfg:
       nconmax=35,
       njmax=300,
       mujoco=MujocoCfg(
-        timestep=0.005,
+        timestep=0.002,
         iterations=10,
         ls_iterations=20,
       ),
     ),
-    decimation=4,
+    decimation=10,
     episode_length_s=20.0,
   )
