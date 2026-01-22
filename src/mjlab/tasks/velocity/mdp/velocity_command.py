@@ -36,10 +36,14 @@ class UniformVelocityCommand(CommandTerm):
     self.vel_command_b = torch.zeros(self.num_envs, 3, device=self.device)
     self.heading_target = torch.zeros(self.num_envs, device=self.device)
     self.heading_error = torch.zeros(self.num_envs, device=self.device)
+    self.posz_target = torch.zeros(self.num_envs, device=self.device)
+    self.pitch_ctrl_target = torch.zeros(self.num_envs, device=self.device)
+
     self.is_heading_env = torch.zeros(
       self.num_envs, dtype=torch.bool, device=self.device
     )
     self.is_standing_env = torch.zeros_like(self.is_heading_env)
+    self.is_tasking_env = torch.zeros_like(self.is_heading_env)
 
     self.metrics["error_vel_xy"] = torch.zeros(self.num_envs, device=self.device)
     self.metrics["error_vel_yaw"] = torch.zeros(self.num_envs, device=self.device)
@@ -63,15 +67,26 @@ class UniformVelocityCommand(CommandTerm):
     )
 
   def _resample_command(self, env_ids: torch.Tensor) -> None:
+
     r = torch.empty(len(env_ids), device=self.device)
     self.vel_command_b[env_ids, 0] = r.uniform_(*self.cfg.ranges.lin_vel_x)
     self.vel_command_b[env_ids, 1] = r.uniform_(*self.cfg.ranges.lin_vel_y)
     self.vel_command_b[env_ids, 2] = r.uniform_(*self.cfg.ranges.ang_vel_z)
+
     if self.cfg.heading_command:
       assert self.cfg.ranges.heading is not None
       self.heading_target[env_ids] = r.uniform_(*self.cfg.ranges.heading)
       self.is_heading_env[env_ids] = r.uniform_(0.0, 1.0) <= self.cfg.rel_heading_envs
+    if self.cfg.ranges.pitch_ctrl is not None:
+      assert self.cfg.ranges.pitch_ctrl is not None
+      self.posz_target[env_ids] = r.uniform_(*self.cfg.ranges.posz)
+      self.pitch_ctrl_target[env_ids] = r.uniform_(*self.cfg.ranges.pitch_ctrl)
+      self.is_tasking_env[env_ids] = r.uniform_(0.0, 1.0) <= self.cfg.rel_tasking_envs
     self.is_standing_env[env_ids] = r.uniform_(0.0, 1.0) <= self.cfg.rel_standing_envs
+    #tasking任务0速度，同时掩码其他环境的任务指标
+    tasking_id_mask = ~self.is_tasking_env
+    self.posz_target[tasking_id_mask] = 0.0
+    self.pitch_ctrl_target[tasking_id_mask] = 0.0
 
     init_vel_mask = r.uniform_(0.0, 1.0) < self.cfg.init_velocity_prob
     init_vel_env_ids = env_ids[init_vel_mask]
@@ -99,6 +114,10 @@ class UniformVelocityCommand(CommandTerm):
       )
     standing_env_ids = self.is_standing_env.nonzero(as_tuple=False).flatten()
     self.vel_command_b[standing_env_ids, :] = 0.0
+    tasking_env_ids = self.is_tasking_env.nonzero(as_tuple=False).flatten()
+    self.vel_command_b[tasking_env_ids, :] = 0.0
+
+
 
   # Visualization.
 
@@ -182,6 +201,7 @@ class UniformVelocityCommandCfg(CommandTermCfg):
   heading_control_stiffness: float = 1.0
   rel_standing_envs: float = 0.0
   rel_heading_envs: float = 1.0
+  rel_tasking_envs: float = 0.0
   init_velocity_prob: float = 0.0
 
   @dataclass
@@ -190,7 +210,8 @@ class UniformVelocityCommandCfg(CommandTermCfg):
     lin_vel_y: tuple[float, float]
     ang_vel_z: tuple[float, float]
     heading: tuple[float, float] | None = None
-
+    pitch_ctrl: tuple[float, float] | None = None
+    posz: tuple[float, float] | None = None
   ranges: Ranges
 
   @dataclass

@@ -138,7 +138,11 @@ def make_velocity_env_cfg() -> ManagerBasedRlEnvCfg:
     "twist": UniformVelocityCommandCfg(
       entity_name="robot",
       resampling_time_range=(3.0, 8.0),
-      rel_standing_envs=0.1,
+      #任务安排优先级task，standing，heading
+      #概率计算公式pt=pt，ps=（1-pt）ps，ph=（1-pt-ps）ph
+      #pt=0.2,ps=0.16,ph=0.192
+      rel_standing_envs=0.2,
+      rel_tasking_envs=0.2,
       rel_heading_envs=0.3,
       heading_command=True,
       heading_control_stiffness=0.5,
@@ -148,6 +152,8 @@ def make_velocity_env_cfg() -> ManagerBasedRlEnvCfg:
         lin_vel_y=(-1.0, 1.0),
         ang_vel_z=(-0.5, 0.5),
         heading=(-math.pi, math.pi),
+        pitch_ctrl=(-math.pi / 12, math.pi / 12),  # 15度
+        posz=(-0.15, 0.05),
       ),
     )
   }
@@ -240,6 +246,20 @@ def make_velocity_env_cfg() -> ManagerBasedRlEnvCfg:
       weight=2.0,
       params={"command_name": "twist", "std": math.sqrt(0.5)},
     ),
+    "track_pitch_pose": RewardTermCfg(
+      func=mdp.track_pitch,
+      weight=2.0,
+      params={"command_name": "twist",
+              "asset_cfg": SceneEntityCfg("robot", body_names=()),  # Set per-robot.
+              "std": math.sqrt(0.5)},
+    ),
+    "track_posz": RewardTermCfg(
+      func=mdp.track_posz,
+      weight=2.0,
+      params={"command_name": "twist",
+              "asset_cfg": SceneEntityCfg("robot", body_names=()),
+              "std": math.sqrt(0.5)},
+    ),
     "upright": RewardTermCfg(
       func=mdp.flat_orientation,
       weight=1.0,
@@ -275,22 +295,22 @@ def make_velocity_env_cfg() -> ManagerBasedRlEnvCfg:
     "action_rate_l2": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.1),
     "air_time": RewardTermCfg(
       func=mdp.feet_air_time,
-      weight=0.0,  # Override per-robot.
+      weight=1.0,  # Override per-robot.
       params={
         "sensor_name": "feet_ground_contact",
-        "threshold_min": 0.05,
-        "threshold_max": 0.5,
+        "threshold_min": 0.35,
+        "threshold_max": 0.45,
         "command_name": "twist",
-        "command_threshold": 0.5,
+        "command_threshold": 0.01,
       },
     ),
     "foot_clearance": RewardTermCfg(
       func=mdp.feet_clearance,
       weight=-2.0,
       params={
-        "target_height": 0.1,
+        "target_height": 0.12,
         "command_name": "twist",
-        "command_threshold": 0.05,
+        "command_threshold": 0.01,
         "asset_cfg": SceneEntityCfg("robot", site_names=()),  # Set per-robot.
       },
     ),
@@ -301,17 +321,17 @@ def make_velocity_env_cfg() -> ManagerBasedRlEnvCfg:
         "sensor_name": "feet_ground_contact",
         "target_height": 0.1,
         "command_name": "twist",
-        "command_threshold": 0.05,
+        "command_threshold": 0.01,
         "asset_cfg": SceneEntityCfg("robot", site_names=()),  # Set per-robot.
       },
     ),
     "foot_slip": RewardTermCfg(
       func=mdp.feet_slip,
-      weight=-0.1,
+      weight=-1,
       params={
         "sensor_name": "feet_ground_contact",
         "command_name": "twist",
-        "command_threshold": 0.05,
+        "command_threshold": 0.01,
         "asset_cfg": SceneEntityCfg("robot", site_names=()),  # Set per-robot.
       },
     ),
@@ -321,7 +341,15 @@ def make_velocity_env_cfg() -> ManagerBasedRlEnvCfg:
       params={
         "sensor_name": "feet_ground_contact",
         "command_name": "twist",
-        "command_threshold": 0.05,
+        "command_threshold": 0.01,
+      },
+    ),
+    "feet_orientation": RewardTermCfg(
+      func=mdp.rew_feet_orientation,
+      weight=0.8,
+      params={
+        "std": math.sqrt(0.2),
+        "asset_cfg": SceneEntityCfg("robot", body_names=("left_ankle_roll","right_ankle_roll")),  # Set per-robot.
       },
     ),
   }

@@ -139,6 +139,12 @@ class CommandManager(ManagerBase):
   def get_command(self, name: str) -> torch.Tensor:
     return self._terms[name].command
 
+  def get_posz_command(self, name: str) -> torch.Tensor:
+    return self._terms[name].posz_target
+
+  def get_pitch_command(self, name: str) -> torch.Tensor:
+    return self._terms[name].pitch_ctrl_target
+
   def get_term(self, name: str) -> CommandTerm:
     return self._terms[name]
 

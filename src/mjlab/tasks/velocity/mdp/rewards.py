@@ -59,6 +59,42 @@ def track_angular_velocity(
   ang_vel_error = z_error + xy_error
   return torch.exp(-ang_vel_error / std**2)
 
+def track_pitch(
+  env: ManagerBasedRlEnv,
+  std: float,
+  command_name: str,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """
+  弯腰的控制负指数奖励
+  """
+  asset: Entity = env.scene[asset_cfg.name]
+  command = env.command_manager.get_pitch_command(command_name)
+  assert command is not None, f"Command '{command_name}' not found."
+  waist_quat_w = asset.data.body_link_quat_w[:, asset_cfg.body_ids, :].squeeze(1)
+  gravity_w = asset.data.gravity_vec_w
+  projected_gravity_b = quat_apply_inverse(waist_quat_w, gravity_w)
+  actual_pitch = torch.atan2(projected_gravity_b[:, 0], -projected_gravity_b[:, 2]) #真实pitch值为投影的arctan
+  error = torch.square(command[:] - actual_pitch[:])
+  return torch.exp(-error / std**2)
+
+def track_posz(
+  env: ManagerBasedRlEnv,
+  std: float,
+  command_name: str,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Reward heading error for heading-controlled envs, angular velocity for others.
+
+  The commanded xy angular velocities are assumed to be zero.
+  """
+  asset: Entity = env.scene[asset_cfg.name]
+  command = env.command_manager.get_posz_command(command_name)
+  assert command is not None, f"Command '{command_name}' not found."
+  actual_base_z = asset.data.body_com_pos_w[:, asset_cfg.body_ids,2].squeeze(1)
+  z_error = torch.square(command[:] + asset.data.default_root_state[:,2]- actual_base_z[:])
+  return torch.exp(-z_error / std**2)
+
 
 def flat_orientation(
   env: ManagerBasedRlEnv,
@@ -84,6 +120,28 @@ def flat_orientation(
     xy_squared = torch.sum(torch.square(asset.data.projected_gravity_b[:, :2]), dim=1)
   return torch.exp(-xy_squared / std**2)
 
+def rew_feet_orientation(
+  env: ManagerBasedRlEnv,
+  std: float,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Reward flat feet orientation (robot being upright).
+
+  If asset_cfg has body_ids specified, computes the projected gravity
+  for that specific body. Otherwise, uses the root link projected gravity.
+  """
+  asset: Entity = env.scene[asset_cfg.name]
+  # If body_ids are specified, compute projected gravity for that body.
+  feet_id = asset.find_bodies(asset_cfg.body_names)[0]#返回两个list组成的tulip
+  quat_L = asset.data.body_link_quat_w[:, feet_id[0], :]
+  quat_R = asset.data.body_link_quat_w[:, feet_id[1], :]
+  gravity_w = asset.data.gravity_vec_w  # [3]
+  gL_b = quat_apply_inverse(quat_L, gravity_w)
+  gR_b = quat_apply_inverse(quat_R, gravity_w)
+  xy_squared_l = torch.sum(gL_b[:, :2] ** 2, dim=1)
+  xy_squared_r = torch.sum(gR_b[:, :2] ** 2, dim=1)
+  cost = 0.5 * (xy_squared_l + xy_squared_r)
+  return torch.exp(-cost / std**2)
 
 def self_collision_cost(env: ManagerBasedRlEnv, sensor_name: str) -> torch.Tensor:
   """Penalize self-collisions.
